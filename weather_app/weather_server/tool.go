@@ -1,6 +1,7 @@
 package weatherserver
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -111,10 +112,39 @@ func getWeather(location string, openAPIMapWeatherKey string) (*WeatherResult, e
 	return nil, nil
 }
 
+type WeatherInput struct {
+	Location string `json:"location" jsonschema:"description=The city to get weather for"`
+	Units    string `json:"units" jsonschema:"enum=metric|imperial,default=metric"`
+}
+
+type WeatherOutput struct {
+	Location string         `json:"location" jsonschema:"description=The city to get weather for"`
+	Result   *WeatherResult `json:"result" jsonschema:"description=Weather result for the city"`
+}
+
+func GetWeatherToolHandler(ctx context.Context, ctr *mcp.CallToolRequest, input *WeatherInput) (*mcp.CallToolResult, *WeatherOutput, error) {
+	location := input.Location
+	wr, err := GetWeather(location, "xyzaza")
+	if err != nil {
+		return nil, nil, err
+	}
+	wo := &WeatherOutput{
+		Location: location,
+		Result:   wr,
+	}
+	return nil, wo, nil
+
+}
+
 func StartServer() {
 	s := mcp.NewServer(&mcp.Implementation{
 		Name:    "Weather App",
 		Version: "0.0.1",
 	}, nil)
 	log.Println(s)
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "Get Weather",
+		Description: "Gets weather details based on a description",
+	}, GetWeatherToolHandler)
+
 }
