@@ -39,12 +39,18 @@ func StartClient() error {
 	}
 
 	for _, tool := range mcpTools.Tools {
+		// CLEANUP: Gemini is strict. Let's ensure Parameters isn't nil
+		params := tool.InputSchema
+		if params == nil {
+			params = map[string]any{"type": "object", "properties": map[string]any{}}
+		}
+
 		serverTools = append(serverTools, llms.Tool{
 			Type: "function",
 			Function: &llms.FunctionDefinition{
 				Name:        tool.Name,
 				Description: tool.Description,
-				Parameters:  tool.InputSchema,
+				Parameters:  params,
 			},
 		})
 	}
@@ -57,9 +63,10 @@ func StartClient() error {
 		return err
 	}
 
-	contextHistory := []llms.MessageContent{
-		llms.TextParts(llms.ChatMessageTypeSystem, "You are a helpful assistant using tools for weather."),
-	}
+	contextHistory := []llms.MessageContent{}
+	// contextHistory := []llms.MessageContent{
+	// 	llms.TextParts(llms.ChatMessageTypeSystem, "You are a helpful assistant using tools for weather."),
+	// }
 
 	scanner := bufio.NewScanner(os.Stdin)
 	fmt.Println("--- Weather Agent Ready (Go) ---")

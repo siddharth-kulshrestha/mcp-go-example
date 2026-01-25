@@ -142,7 +142,7 @@ func StartServer() {
 		Version: "0.0.1",
 	}, nil)
 	mcp.AddTool(s, &mcp.Tool{
-		Name:        "Get Weather",
+		Name:        "get_weather",
 		Description: "Gets weather details based on a description",
 	}, GetWeatherToolHandler)
 	if err := s.Run(context.Background(), &mcp.StdioTransport{}); err != nil {

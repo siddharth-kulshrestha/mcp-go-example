@@ -22,8 +22,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	model := "gemini-3-flash-preview"
-	prompt := "Explain how AI works in a few words"
+	model := "gemini-2.5-flash-lite"
+	prompt := "Explain how Government works in a few words"
 
 	// 2. Set a ThinkingBudget to ensure reasoning happens but yields an answer
 	config := &genai.GenerateContentConfig{
