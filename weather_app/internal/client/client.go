@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/google/shlex"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/googleai"
@@ -16,8 +17,93 @@ import (
 
 var GeminiAPIKey string
 
+var ErrShouldContinue = fmt.Errorf("err not harmful")
+
 func init() {
 	GeminiAPIKey = os.Getenv("GEMINI_API_KEY")
+}
+
+// HandlePrompts handles the prompts coming from user as part of input
+func HandlePrompts(ctx context.Context, sess *mcp.ClientSession, input string) (string, error) {
+
+	strs, err := shlex.Split(input)
+	if err != nil {
+		return "", fmt.Errorf("error while splitting the user input, err: %w", err)
+	}
+
+	if len(strs) < 2 {
+		fmt.Println("\nUsage: /prompt <prompt_name> \"arg1\" \"arg2\" ...")
+		return "", fmt.Errorf("not a valid prompt %w", ErrShouldContinue)
+	}
+
+	promptName := strs[1]
+	promptArgs := strs[2:]
+	res, err := sess.ListPrompts(ctx, nil)
+	if err != nil {
+		return "", fmt.Errorf("Got err, while listing prompts: %w", err)
+	}
+
+	var targetPrompt *mcp.Prompt
+	for _, p := range res.Prompts {
+		if p.Name == promptName {
+			targetPrompt = p
+			break
+		}
+	}
+
+	if targetPrompt == nil {
+		return "", fmt.Errorf("prompt by name %s does not exists on server", promptName, ErrShouldContinue)
+	}
+
+	if len(promptArgs) < len(targetPrompt.Arguments) {
+		return "", fmt.Errorf("length of arguments for prompt %s is not enough to invoke the prompt", promptName, ErrShouldContinue)
+	}
+
+	var argMap map[string]string
+
+	for i, arg := range targetPrompt.Arguments {
+		argMap[arg.Name] = promptArgs[i]
+	}
+
+	getPromptRes, err := sess.GetPrompt(ctx, &mcp.GetPromptParams{
+		Name:      promptName,
+		Arguments: argMap,
+	})
+	if err != nil {
+		return "", fmt.Errorf("Error while, getting prompt err: %w, %w", err, ErrShouldContinue)
+	}
+
+	b, err := json.Marshal(getPromptRes.Messages[0].Content)
+	if err != nil {
+		return "", fmt.Errorf("Error while, marshalling prompt err: %w, %w", err, ErrShouldContinue)
+	}
+
+	fmt.Println("\n--- Prompt loaded successfully. Preparing to execute... ---")
+	return string(b), nil
+}
+
+func ListPrompts(ctx context.Context, sess *mcp.ClientSession) error {
+	res, err := sess.ListPrompts(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("Got err, while listing prompts: %w", err)
+	}
+	fmt.Println("--------Available Prompts and their arguments-------------")
+	for _, prompt := range res.Prompts {
+		fmt.Printf("Prompt: %s \n", prompt.Name)
+		if len(prompt.Arguments) > 0 {
+			var argList []string
+			for _, arg := range prompt.Arguments {
+				argList = append(argList, arg.Name)
+			}
+			fmt.Printf("Arguments for prompt: %s : %s \n", prompt.Name, strings.Join(argList, ", "))
+		} else {
+			fmt.Printf("Arguments for prompt %s: None \n", prompt.Name)
+		}
+	}
+
+	fmt.Println("\nUsage: /prompt <prompt_name> \"arg1\" \"arg2\" ...")
+	fmt.Println("-----------------------------------------------------")
+	return nil
 }
 
 func StartClient() error {
@@ -70,16 +156,39 @@ func StartClient() error {
 
 	scanner := bufio.NewScanner(os.Stdin)
 	fmt.Println("--- Weather Agent Ready (Go) ---")
+	fmt.Println("Type a question, or use one of the following commands:")
+	fmt.Println("  /prompts                           - to list available prompts")
+	fmt.Println("  /prompt <prompt_name> \"args\"...  - to run a specific prompt")
 
 	for {
 		fmt.Printf("\nUser: ")
 		if !scanner.Scan() {
 			break
 		}
-		input := scanner.Text()
-		if strings.ToLower(input) == "exit" {
+		ip := scanner.Text()
+		if strings.ToLower(ip) == "exit" {
 			fmt.Println("Bye Bye!")
 			return nil
+		}
+
+		input := ip
+
+		// Check if user has asked to list down prompts
+		if strings.ToLower(ip) == "/prompts" {
+			err := ListPrompts(ctx, session)
+			if err != nil {
+				fmt.Println("error while listing the prompts from the MCP Server, err: ", err)
+				continue
+			}
+		} else if strings.HasPrefix(ip, "/prompt") {
+			prompt, err := HandlePrompts(ctx, session, ip)
+			if err != nil {
+				fmt.Printf("Error occured while handling the prompts, err: %v\n", err)
+				continue
+			}
+			if len(prompt) > 0 {
+				input = ip
+			}
 		}
 
 		// FIX: Use '=' not ':=' so we don't shadow the contextHistory variable
