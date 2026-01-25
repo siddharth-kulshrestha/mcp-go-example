@@ -52,11 +52,11 @@ func HandlePrompts(ctx context.Context, sess *mcp.ClientSession, input string) (
 	}
 
 	if targetPrompt == nil {
-		return "", fmt.Errorf("prompt by name %s does not exists on server", promptName, ErrShouldContinue)
+		return "", fmt.Errorf("prompt by name %s does not exists on server %w", promptName, ErrShouldContinue)
 	}
 
 	if len(promptArgs) < len(targetPrompt.Arguments) {
-		return "", fmt.Errorf("length of arguments for prompt %s is not enough to invoke the prompt", promptName, ErrShouldContinue)
+		return "", fmt.Errorf("length of arguments for prompt %s is not enough to invoke the prompt %w", promptName, ErrShouldContinue)
 	}
 
 	var argMap map[string]string
