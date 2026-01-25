@@ -15,8 +15,10 @@ import (
 	"github.com/tmc/langchaingo/llms/googleai"
 )
 
+// GeminiAPIKey
 var GeminiAPIKey string
 
+// ErrShouldContinue
 var ErrShouldContinue = fmt.Errorf("err not harmful")
 
 func init() {
@@ -82,6 +84,7 @@ func HandlePrompts(ctx context.Context, sess *mcp.ClientSession, input string) (
 	return string(b), nil
 }
 
+// ListPrompts
 func ListPrompts(ctx context.Context, sess *mcp.ClientSession) error {
 	res, err := sess.ListPrompts(ctx, nil)
 	if err != nil {
@@ -106,6 +109,7 @@ func ListPrompts(ctx context.Context, sess *mcp.ClientSession) error {
 	return nil
 }
 
+// StartClient
 func StartClient() error {
 	ctx := context.Background()
 
