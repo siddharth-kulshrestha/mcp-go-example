@@ -41,6 +41,20 @@ func GetWeather(location, openAPIMapWeatherKey string) (*WeatherResult, error) {
 	return getWeatherMock(location, openAPIMapWeatherKey)
 }
 
+func CompareWeather(locationA, locationB string) string {
+	return fmt.Sprintf(`You are acting as a helpful weather analyst. 
+Your goal is to provide a clear and easy-to-read comparison of the weather in two different locations for a user.
+
+The user wants to compare the weather between %q and %q.
+
+To accomplish this, follow these steps:
+1. First, gather the necessary weather data for both %q and %q.
+2. Once you have the weather data for both locations, DO NOT simply list the raw results.
+3. Instead, synthesize the information into a concise summary. Your final response should highlight the key differences, focusing on temperature, the general conditions (e.g., 'sunny' vs 'rainy'), and wind speed.
+4. Present the comparison in a structured format, like a markdown table or a clear bulleted list, to make it easy for the user to understand at a glance.`,
+		locationA, locationB, locationA, locationB)
+}
+
 func getWeatherMock(location, openAPIMapWeatherKey string) (*WeatherResult, error) {
 	mockJSON := `{
 		"name": "Bengaluru",
@@ -136,15 +150,59 @@ func GetWeatherToolHandler(ctx context.Context, ctr *mcp.CallToolRequest, input 
 
 }
 
+func CompareWeatherPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+	locationA := req.Params.Arguments["location_a"]
+	locationB := req.Params.Arguments["location_b"]
+	if locationA == "" || locationB == "" {
+		return nil, fmt.Errorf("any one or both the locations are empty: 1. %s,\n 2. %s", locationA, locationB)
+	}
+
+	prompt := CompareWeather(locationA, locationB)
+	return &mcp.GetPromptResult{
+		Description: "Weather comparision prompt",
+		Messages: []*mcp.PromptMessage{
+			{
+				Role: "user",
+				Content: &mcp.TextContent{
+					Text: prompt,
+				},
+			},
+		},
+	}, nil
+
+}
+
 func StartServer() {
 	s := mcp.NewServer(&mcp.Implementation{
 		Name:    "Weather-Tool",
 		Version: "0.0.1",
 	}, nil)
+
+	// Adding tool to fetch weather of a specific city
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "get_weather",
 		Description: "Gets weather details based on a description",
 	}, GetWeatherToolHandler)
+
+	// Adding prompts to fetch weather for multiple cities..
+	s.AddPrompt(&mcp.Prompt{
+		Name:        "compare_weather",
+		Description: "Generates a clear, comparative summary of the weather between two specified locations.",
+		Arguments: []*mcp.PromptArgument{
+			{
+				Name:        "location_a",
+				Description: "The first city for comparison (e.g., 'London')",
+				Required:    true,
+			},
+			{
+				Name:        "location_b",
+				Description: "The second city for comparison (e.g., 'Paris')",
+				Required:    true,
+			},
+		},
+	}, CompareWeatherPrompt)
+
+	// Running the server
 	if err := s.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
 		log.Fatal(err)
 	}
