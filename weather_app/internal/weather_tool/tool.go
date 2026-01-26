@@ -8,12 +8,13 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-type WeatherResponse struct {
+type Weather struct {
 	Name    string `json:"name"`
 	Weather []struct {
 		Description string `json:"description"`
@@ -27,6 +28,8 @@ type WeatherResponse struct {
 		Speed float64 `json:"speed"`
 	} `json:"wind"`
 }
+
+type WeatherResponse []*Weather
 
 type WeatherResult struct {
 	Location           string `json:"location"`
@@ -56,30 +59,65 @@ To accomplish this, follow these steps:
 }
 
 func getWeatherMock(location, openAPIMapWeatherKey string) (*WeatherResult, error) {
-	mockJSON := `{
-		"name": "Bengaluru",
-		"weather": [{"description": "scattered clouds"}],
-		"main": {
-			"temp": 28.5,
-			"feels_like": 30.2,
-			"humidity": 55
-		},
-		"wind": {
-			"speed": 5.4
-		}
-	}`
+	mockJSON := `[
+  {
+    "name": "Bengaluru",
+    "weather": [{"description": "scattered clouds"}],
+    "main": {
+      "temp": 28.5,
+      "feels_like": 30.2,
+      "humidity": 55
+    },
+    "wind": {
+      "speed": 5.4
+    }
+  },
+  {
+    "name": "London",
+    "weather": [{"description": "light rain"}],
+    "main": {
+      "temp": 12.4,
+      "feels_like": 10.8,
+      "humidity": 82
+    },
+    "wind": {
+      "speed": 3.1
+    }
+  },
+  {
+    "name": "New York",
+    "weather": [{"description": "clear sky"}],
+    "main": {
+      "temp": -2.0,
+      "feels_like": -7.5,
+      "humidity": 40
+    },
+    "wind": {
+      "speed": 8.2
+    }
+  }
+]`
 	var weatherResponse *WeatherResponse
 	err := json.Unmarshal([]byte(mockJSON), &weatherResponse)
 	if err != nil {
 		return nil, err
 	}
+
+	var weather *Weather
+	for _, w := range *weatherResponse {
+		if strings.EqualFold(w.Name, location) {
+			weather = w
+			break
+		}
+	}
+
 	result := WeatherResult{
-		Location:           weatherResponse.Name,
-		Weather:            weatherResponse.Weather[0].Description,
-		TemperatureCelsius: fmt.Sprintf("%.1f°C", weatherResponse.Main.Temp),
-		FeelsLikeCelsius:   fmt.Sprintf("%.1f°C", weatherResponse.Main.FeelsLike),
-		Humidity:           fmt.Sprintf("%d%%", weatherResponse.Main.Humidity),
-		WindSpeedMps:       fmt.Sprintf("%.1f m/s", weatherResponse.Wind.Speed),
+		Location:           weather.Name,
+		Weather:            weather.Weather[0].Description,
+		TemperatureCelsius: fmt.Sprintf("%.1f°C", weather.Main.Temp),
+		FeelsLikeCelsius:   fmt.Sprintf("%.1f°C", weather.Main.FeelsLike),
+		Humidity:           fmt.Sprintf("%d%%", weather.Main.Humidity),
+		WindSpeedMps:       fmt.Sprintf("%.1f m/s", weather.Wind.Speed),
 	}
 
 	// Output the result

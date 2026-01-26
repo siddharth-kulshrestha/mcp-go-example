@@ -61,7 +61,7 @@ func HandlePrompts(ctx context.Context, sess *mcp.ClientSession, input string) (
 		return "", fmt.Errorf("length of arguments for prompt %s is not enough to invoke the prompt %w", promptName, ErrShouldContinue)
 	}
 
-	var argMap map[string]string
+	var argMap = map[string]string{}
 
 	for i, arg := range targetPrompt.Arguments {
 		argMap[arg.Name] = promptArgs[i]
@@ -75,13 +75,13 @@ func HandlePrompts(ctx context.Context, sess *mcp.ClientSession, input string) (
 		return "", fmt.Errorf("Error while, getting prompt err: %w, %w", err, ErrShouldContinue)
 	}
 
-	b, err := json.Marshal(getPromptRes.Messages[0].Content)
-	if err != nil {
-		return "", fmt.Errorf("Error while, marshalling prompt err: %w, %w", err, ErrShouldContinue)
+	txtContent, ok := getPromptRes.Messages[0].Content.(*mcp.TextContent)
+	if !ok {
+		return "", fmt.Errorf("Error while, typecasting the prompt to text content: %w, %w", err, ErrShouldContinue)
 	}
 
 	fmt.Println("\n--- Prompt loaded successfully. Preparing to execute... ---")
-	return string(b), nil
+	return txtContent.Text, nil
 }
 
 // ListPrompts
@@ -184,6 +184,7 @@ func StartClient() error {
 				fmt.Println("error while listing the prompts from the MCP Server, err: ", err)
 				continue
 			}
+			continue
 		} else if strings.HasPrefix(ip, "/prompt") {
 			prompt, err := HandlePrompts(ctx, session, ip)
 			if err != nil {
