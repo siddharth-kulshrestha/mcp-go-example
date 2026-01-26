@@ -1,7 +1,7 @@
 package main
 
 import (
-	ws "weatherapp/internal/weather_tool"
+	ws "weatherapp/internal/weather_mcp_server"
 )
 
 func main() {

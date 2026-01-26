@@ -1,4 +1,4 @@
-package weather_tool
+package weather_mcp_server
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -210,6 +211,44 @@ func CompareWeatherPrompt(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.
 
 }
 
+// HandleDeliveryLog is the resource handler for reading the physical file.
+func HandleDeliveryLog(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+	// 1. Read the local file
+	data, err := os.ReadFile("delivery_log.txt")
+
+	// 2. Handle File Not Found specifically
+	if os.IsNotExist(err) {
+		return &mcp.ReadResourceResult{
+			Contents: []*mcp.ResourceContents{
+				&mcp.ResourceContents{
+					URI:      req.Params.URI,
+					MIMEType: "text/plain",
+					Text:     "Error: The delivery_log.txt file was not found on the server.",
+				},
+			},
+		}, nil
+	}
+
+	// 3. Handle unexpected errors
+	if err != nil {
+		return nil, fmt.Errorf("unexpected error reading log: %w", err)
+	}
+
+	// 4. Mimic the Python logic: strip and process lines
+	// Since we return a single string to the LLM, we just clean up the text.
+	content := strings.TrimSpace(string(data))
+
+	return &mcp.ReadResourceResult{
+		Contents: []*mcp.ResourceContents{
+			&mcp.ResourceContents{
+				URI:      req.Params.URI,
+				MIMEType: "text/plain",
+				Text:     content,
+			},
+		},
+	}, nil
+}
+
 func StartServer() {
 	s := mcp.NewServer(&mcp.Implementation{
 		Name:    "Weather-Tool",
@@ -239,6 +278,14 @@ func StartServer() {
 			},
 		},
 	}, CompareWeatherPrompt)
+
+	// Adding resource of log file
+	s.AddResource(&mcp.Resource{
+		Name:        "file://delivery_log",
+		Title:       "Delivery Log",
+		Description: "Real-time delivery logs containing order numbers and locations.",
+		MIMEType:    "text/plain",
+	}, HandleDeliveryLog)
 
 	// Running the server
 	if err := s.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
