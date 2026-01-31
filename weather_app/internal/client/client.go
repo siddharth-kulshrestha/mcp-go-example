@@ -25,6 +25,18 @@ func init() {
 	GeminiAPIKey = os.Getenv("GEMINI_API_KEY")
 }
 
+// HandleResources handles the resoruces coming from user as part of input
+func HandleResources(ctx context.Context, sess *mcp.ClientSession, input string) (string, error) {
+	strs, err := shlex.Split(input)
+	if err != nil {
+		return "", fmt.Errorf("error while splitting the user input, err: %w", err)
+	}
+
+	if len(strs) < 2 {
+		fmt.Println("\nUsage: /resource ")
+	}
+}
+
 // HandlePrompts handles the prompts coming from user as part of input
 func HandlePrompts(ctx context.Context, sess *mcp.ClientSession, input string) (string, error) {
 
